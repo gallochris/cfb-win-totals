@@ -4,6 +4,8 @@
 
 Welcome! This project provides the 2023 schedules and opponent win totals for college football teams in the FBS. 
 
+Check it out here: https://blessyourchart.shinyapps.io/cfbwintotals/
+
 It's intended to be used to look up the schedule of a team and understand the expectations of that team, and its opponents.
 
 After the season starts, the information likely becomes less useful. Who knows, I might add results to track the win totals as the season develops this fall. Stay tuned. 

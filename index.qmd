@@ -9,7 +9,7 @@ Last updated: `July 17, 2023`
 :::
 
 ```{r setup, include=FALSE}
-# Set environment variable
+# Set environment variable if needed
 # Sys.setenv("CFBD_API_KEY")
 ```
 
@@ -185,7 +185,7 @@ After the season starts, the information likely becomes less useful. Who knows, 
 
 * * * 
 
-Built by [Chris](https://hellogallo.com) using [quarto](https://quarto.org/docs/interactive/shiny/index.html).
+Built by [Chris](https://hellogallo.com) using [quarto](https://quarto.org/docs/interactive/shiny/index.html). You can find the [code here](https://github.com/gallochris/cfb-win-totals).
 
 If you found this useful, please consider sharing it. I also write a data visualization newsletter, [Bless your chart](https://blessyourchart.substack.com/), about college sports. 
 
