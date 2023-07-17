@@ -1,0 +1,206 @@
+---
+title: "College Football Opponent Win Totals"
+format: html
+server: shiny
+---
+
+:::{.callout-note}
+Last updated: `July 17, 2023`
+:::
+
+```{r setup, include=FALSE}
+# Set environment variable
+# Sys.setenv("CFBD_API_KEY")
+```
+
+```{r function-load, warning=FALSE}
+#| context: setup
+#| warning: false
+
+# load combined data 
+combined_data <- readRDS("combined_data.rds")
+
+# load only the totals and colors data 
+wt <- readr::read_csv("https://raw.githubusercontent.com/gallochris/caRolina/main/old_scraps/wt.csv") |> 
+      dplyr::mutate(team = dplyr::if_else(team == "UT San Antonio", "UTSA", team)) |> 
+      dplyr::select(-1)
+
+sched_win_totals <- function(team_name) {
+  team_col <-
+    wt[wt$team == team_name, "color"]
+  
+  team_name_total <-
+    as.numeric(wt[wt$team == team_name, "total"])
+  
+  opp_team_name_avg <- combined_data |>
+    dplyr::filter(team_name == {{ team_name }}) |>
+    dplyr::summarise(avg = sprintf("%.1f", mean(win_total, na.rm = TRUE)))
+  
+  opp_non_con_avg <- combined_data |>
+    dplyr::filter(team_name == {{ team_name }} & conference_game == FALSE) |>
+    dplyr::summarise(avg = sprintf("%.1f", mean(win_total, na.rm = TRUE)))
+  
+opp_conf_avg <- combined_data |>
+  dplyr::filter(team_name == {{ team_name }} & conference_game == TRUE) |>
+  dplyr::summarise(avg = dplyr::if_else(is.nan(mean(win_total, na.rm = TRUE)), 
+                                        "N/A (Independent)", sprintf("%.1f", mean(win_total, na.rm = TRUE))))
+
+  chart_title <-
+    paste0(team_name, ": win total is ", team_name_total)
+  
+  sub_title <-
+    paste0(
+      "The average win total of its opponents is ",
+      opp_team_name_avg,
+      "<br>
+                      <em>Non-conference opponents</em>: ",
+      opp_non_con_avg,
+      "<br>
+                      <b>Conference opponents</b>: ",
+      opp_conf_avg
+    )
+  
+  combined_data |>
+    dplyr::filter(team_name == {{ team_name }}) |> 
+    dplyr::select(-color) |> 
+    dplyr::mutate(
+      conference_game = dplyr::if_else(conference_game == TRUE, "circle-check", "circle-xmark")
+    ) |>
+    dplyr::mutate(
+      home_away = dplyr::case_match(
+        home_away,
+        "home" ~ "house",
+        "away" ~ "road",
+        "neutral" ~ "face-meh"
+      )
+    ) |>
+    dplyr::mutate(across(dplyr::everything(), ~ replace(.x, is.na(.x), ""))) |>
+    dplyr::mutate(opp_logo = opponent) |>
+    dplyr::relocate(opp_logo, .before = opponent) |>
+    gt::gt() |>
+    gt::cols_label(
+      # rename columns
+      week = "Week",
+      team_name = "Team",
+      conference_game = "Conference",
+      home_away = "Location",
+      opp_logo = "",
+      opponent = "Opponent",
+      win_total = "Projected Wins"
+    ) |>
+    gt::tab_spanner(label = "Opponent Season Win Totals",
+                    columns = c(opponent, win_total)) |>
+    cfbplotR::gt_fmt_cfb_logo(columns = c("team_name", "opp_logo")) |>
+    gt::fmt_number(
+      columns = c(win_total),
+      decimals = 1,
+      use_seps = FALSE
+    ) |>
+       gtExtras::gt_fa_column(conference_game,
+                           palette = c(
+                             "circle-check" = team_col[team_col == team_col],
+                             "circle-xmark" = "#acacac"
+                           )) |>
+    gtExtras::gt_fa_column(home_away,
+                           palette = c(
+                             "house" = team_col[team_col == team_col],
+                             "road" = "#acacac",
+                             "face-meh" = "#acacac"
+                           )) |>
+    gt::tab_header(title = htmltools::HTML(chart_title),
+                   subtitle = htmltools::HTML(sub_title)) |>
+    gt::tab_source_note(source_note = "Bless your chart | data via CFBfastR + vegasinsider.com")  |>
+    gtExtras::gt_theme_538() |>
+    gt::tab_style(style = list(
+      gt::cell_borders(
+        sides = c("left"),
+        color = "#c1c1c1",
+        weight = gt::px(2)
+      )
+    ),
+    locations = list(gt::cells_body(columns = c(opp_logo)))) |>
+    gt::tab_style(
+      style = list(gt::cell_text(
+        transform = "capitalize",
+        size = gt::px(16)
+      )),
+      locations = gt::cells_column_spanners()
+    ) -> table_opps
+  
+  table_opps
+}
+
+cached_sched_win_totals <- memoise::memoise(sched_win_totals)
+```
+
+::: {.panel-tabset}
+### Select a team
+```{r teams}
+fluidPage(
+  fluidRow(
+    column(
+      4,
+      selectInput(
+        'team',
+        'Select a team',
+        choices = c("All", as.character(unique(combined_data$team_name))),
+        selected = "Georgia"
+      )
+    )
+  ),
+  fluidRow(
+    column(
+      12,
+      gt::gt_output("teamtable")
+    )
+  )
+)
+```
+
+### About
+
+Welcome! This project provides the 2023 schedules and opponent win totals for college football teams in the FBS. 
+
+It's intended to be used to look up the schedule of a team and understand the expectations of that team, and its opponents.
+
+After the season starts, the information likely becomes less useful. Who knows, I might add results to track the win totals as the season develops this fall. Stay tuned. 
+
+#### Data sources: 
+-  win totals from [vegasinsider.com](https://www.vegasinsider.com/college-football/odds/win-totals/)
+-  schedules from [cfbfastR](https://github.com/sportsdataverse/cfbfastR)
+-  logos from [cfbplotR](https://kazink36.github.io/cfbplotR/articles/tutorial.html)
+
+#### What this project includes: 
+
+-   schedules for 131 FBS teams 
+-   pre-season win totals for each team
+-   average win totals for the team's opponents, including conference and non-conference opponents
+
+#### What it does NOT include:
+
+-   odds from different sportbooks
+-   picks on over/under win totals
+-   any proprietary models (only raw data)
+-   some teams do not have any pre-season win totals available (i.e. Campbell)
+
+* * * 
+
+Built by [Chris](https://hellogallo.com) using [quarto](https://quarto.org/docs/interactive/shiny/index.html).
+
+If you found this useful, please consider sharing it. I also write a data visualization newsletter, [Bless your chart](https://blessyourchart.substack.com/), about college sports. 
+
+:::
+
+```{r}
+#| context: server
+output$teamtable <- gt::render_gt({
+  team_name <- input$team
+  if (team_name == "All") {
+    # Handle the case when "All" is selected
+    # For example, you can return a message or an empty table
+    gt::gt(data.frame())  # Return an empty table
+  } else {
+    cached_sched_win_totals(team_name)
+  }
+})
+```
